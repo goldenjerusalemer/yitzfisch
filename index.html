@@ -533,9 +533,16 @@ window.addEventListener('pageshow', e => {
 });
 
 // ─────────────────────────────────────────────
-// PHOTOS — Yitz's real Google Drive library
+// PHOTOS — read from the Google Sheet CMS (Photos tab, published as CSV).
+// If the sheet is slow, empty, or unreachable, the FALLBACK list below is used
+// instead, so the site can never open blank.
 // ─────────────────────────────────────────────
-const PHOTOS = [
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRl0cOzfdqwZlUEMzQ2jH7HkZLpOqvXEdNajOoc1NtcTWZ2f1FVjjcmZ_amn7M4uNAlKvQC_zkFL0oV/pub?output=csv';
+const SHEET_TIMEOUT = 2500; // ms to wait for the sheet before falling back
+
+// Snapshot of the current library. Still Drive IDs for now; once the sheet has real
+// rows and the JPGs are in /img, this list is only a safety net.
+const FALLBACK = [
   { id:'132TEjaqItWoTdTM2xcwBgJ7VvidkQ-5K', t:'Golden Hour',     l:'Jerusalem' },
   { id:'1geR6c37hlLv6XHCUiD7aZ94wkBiiKUNG', t:'The Walk',        l:'Old City' },
   { id:'1D7CIyiPFqwigZpyhCkMAuw2OrbOFLneQ', t:'Afternoon Light', l:'Jerusalem' },
@@ -557,6 +564,15 @@ const PHOTOS = [
   { id:'12hjgNH5yftP7YFUb1GGG992k5HWRkMyx', t:'Gathering',       l:'Jerusalem' },
   { id:'1XagLrXSLeYel9ejRYftRiP48wb6TW3SI', t:'The Walk II',     l:'Old City' },
 ];
+// Which photos go where. These are indices into PHOTOS. The sheet overrides them
+// (corridor / series / print / portrait columns); these are the fallback picks.
+let PHOTOS        = FALLBACK;
+let CORRIDOR_PICKS = [0, 6, 11, 4, 17, 8, 2, 14, 9, 5];
+let SHABBAT_PICKS  = [17, 6, 14, 13, 18];
+let PRINT_PICKS    = [0, 6, 17];
+let PORTRAIT_PICK  = 16;   // index into PHOTOS (fallback only)
+let PORTRAIT_ID    = null; // set from the sheet's portrait row, which stays out of the gallery
+
 // ── RESOLUTION KNOB ──────────────────────────────────────────────
 // Width (px) every on-page photo is requested at: corridor frames, gallery,
 // series strip, prints. NOT the full-screen lightbox (that stays sharp below).
@@ -565,8 +581,108 @@ const PHOTOS = [
 //   ~440 = light & fast (recommended)   520 = original   600+ = extra crisp
 const IMGW = window.innerWidth < 640 ? 360 : 480;
 const DIMS = {};
-const url = (id, w) => 'https://lh3.googleusercontent.com/d/' + id + '=w' + (w||IMGW);
+
+// ── IMAGE SOURCE ─────────────────────────────────────────────────
+// `id` is whatever the sheet's `file` column holds. A filename (anything with a dot,
+// e.g. golden-hour.jpg) is served from /img through the Netlify Image CDN, resized on
+// the fly. A bare Google Drive ID (no dot) still goes to Drive, so old rows keep
+// working during the move. Once every row is a filename, the Drive line can be deleted.
+const url = (id, w) => /\./.test(id)
+  ? '/.netlify/images?url=' + encodeURIComponent('/img/' + id) + '&w=' + (w||IMGW) + '&q=82'
+  : 'https://lh3.googleusercontent.com/d/' + id + '=w' + (w||IMGW);
 const EMAIL = 'info@yitzfisch.com';
+
+// ─────────────────────────────────────────────
+// GOOGLE SHEET → PHOTOS
+// ─────────────────────────────────────────────
+// Minimal CSV parser that respects quoted cells (titles with commas, line breaks).
+function parseCSV(text){
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i], n = text[i + 1];
+    if (q){
+      if (c === '"' && n === '"'){ cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ','){ row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r'){
+      if (c === '\r' && n === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+// Turn the Photos tab into PHOTOS + the pick lists. Returns false if nothing usable.
+// The sheet may have intro rows above the header and a legend below the data; we scan
+// for the row whose first cell is `file` (or legacy `file_id`) and read until a row with
+// no filename in it.
+function applySheet(csv){
+  const rows = parseCSV(csv);
+  const norm = s => String(s || '').trim().toLowerCase();
+  let hi = rows.findIndex(r => r.some(c => norm(c) === 'file' || norm(c) === 'file_id'));
+  if (hi < 0) return false;
+  const head = rows[hi].map(norm);
+  const col = name => head.indexOf(name);
+  const cFile = col('file') >= 0 ? col('file') : col('file_id');
+  const cTitle = col('title'), cLoc = col('location'), cAlbum = col('album');
+  const cCorr = col('corridor'), cSeries = col('series'), cPrint = col('print'), cPort = col('portrait'), cOrder = col('order');
+
+  const list = [];
+  for (let r = hi + 1; r < rows.length; r++){
+    const row = rows[r];
+    const file = String(row[cFile] || '').trim();
+    if (!file) break;                              // first empty file cell = end of data
+    if (/^(#|\/\/|legend|example)/i.test(file)) break;
+    const num = c => { const v = parseFloat(row[c]); return c >= 0 && !isNaN(v) ? v : null; };
+    const yes = c => c >= 0 && /^(y|yes|x|true|1)$/i.test(String(row[c] || '').trim());
+    list.push({
+      id: file,
+      t: String(cTitle >= 0 ? row[cTitle] || '' : '').trim() || file.replace(/\.[^.]+$/, ''),
+      l: String(cLoc >= 0 ? row[cLoc] || '' : '').trim() || 'Jerusalem',
+      album: String(cAlbum >= 0 ? row[cAlbum] || '' : '').trim(),
+      corridor: num(cCorr), series: num(cSeries), print: num(cPrint),
+      portrait: yes(cPort), order: num(cOrder)
+    });
+  }
+  // the portrait row is Yitz himself, not a gallery piece: pull it out
+  const portRow = list.find(p => p.portrait);
+  const gallery = list.filter(p => !p.portrait);
+  if (gallery.length < 4) return false; // need at least the four opening corridor frames
+  list.length = 0; gallery.forEach(p => list.push(p));
+
+  // gallery order: `order` column if present, else sheet order
+  list.forEach((p, i) => { p._i = i; });
+  list.sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a._i - b._i);
+
+  const ranked = key => list.map((p, i) => ({ i, v: p[key] }))
+                            .filter(x => x.v !== null).sort((a, b) => a.v - b.v).map(x => x.i);
+  const corr = ranked('corridor'), ser = ranked('series'), pr = ranked('print');
+
+  PHOTOS = list;
+  // corridor needs exactly 10: numbered rows first, then the rest of the gallery in order,
+  // then wrap around if the whole library is smaller than 10
+  const pool = corr.concat(list.map((_, i) => i).filter(i => corr.indexOf(i) < 0));
+  CORRIDOR_PICKS = [];
+  for (let k = 0; k < 10; k++) CORRIDOR_PICKS.push(pool[k % pool.length]);
+  SHABBAT_PICKS = (ser.length ? ser : list.map((_, i) => i)).slice(0, 5);
+  PRINT_PICKS   = (pr.length ? pr : CORRIDOR_PICKS).slice(0, 3);
+  PORTRAIT_ID   = portRow ? portRow.id : null;
+  PORTRAIT_PICK = CORRIDOR_PICKS[0];
+  return true;
+}
+
+function loadSheet(){
+  if (!SHEET_CSV || !window.fetch) return Promise.resolve(false);
+  const ctrl = window.AbortController ? new AbortController() : null;
+  const timer = setTimeout(() => ctrl && ctrl.abort(), SHEET_TIMEOUT);
+  return fetch(SHEET_CSV, { signal: ctrl ? ctrl.signal : undefined, cache: 'default' })
+    .then(r => r.ok ? r.text() : '')
+    .then(t => { clearTimeout(timer); return t ? applySheet(t) : false; })
+    .catch(() => { clearTimeout(timer); return false; });
+}
 
 // retry images once if Drive hiccups (rate limits / slow network)
 function withRetry(img){
@@ -606,8 +722,6 @@ const nav      = document.getElementById('nav');
 
 let HW = 0, VH = 0, stageH = 0;
 const frames = [];
-
-const CORRIDOR_PICKS = [0, 6, 11, 4, 17, 8, 2, 14, 9, 5];
 
 function setDims(img, srcUrl){
   const d = DIMS[srcUrl];
@@ -707,6 +821,8 @@ function readScroll(){
   // only turn on the frosted-glass nav once the walk is finished. blurring it over the
   // moving corridor forces the phone to re-blur every frame = the jank/jumping.
   const walkDone = p >= 0.999;
+  if (inWalk === walkDone) lastCam = -1; // sway state changed: force one clean render
+  inWalk = !walkDone;
   nav.classList.toggle('scrolled', walkDone);
   if (walkDone && !lbWarmed){
     lbWarmed = true;
@@ -715,8 +831,37 @@ function readScroll(){
   }
 }
 
-function render(camZ){
-  world.style.transform = 'translateZ(' + Math.round(camZ) + 'px)';
+// ── IDLE SWAY + MOUSE TILT ───────────────────────────────────────
+// When the visitor stops scrolling the corridor used to freeze into a still image.
+// Now the camera breathes: a slow figure-eight drift of a few px, plus (desktop only)
+// a gentle lean toward the mouse. Amplitudes are deliberately tiny so photos stay
+// readable and nothing feels like a screensaver. Off under prefers-reduced-motion.
+const SWAY = { x: 7, y: 4, z: 9, tilt: 1.6 };
+let tiltX = 0, tiltY = 0, tiltTX = 0, tiltTY = 0;
+let inWalk = true; // only animate while the corridor is on screen
+if (window.matchMedia('(hover:hover) and (pointer:fine)').matches){
+  window.addEventListener('mousemove', e => {
+    tiltTX = (e.clientX / window.innerWidth  - 0.5) * 2;   // -1 .. 1
+    tiltTY = (e.clientY / window.innerHeight - 0.5) * 2;
+  }, { passive: true });
+  window.addEventListener('mouseleave', () => { tiltTX = 0; tiltTY = 0; });
+}
+
+function render(camZ, now){
+  let sx = 0, sy = 0, sz = 0, ry = 0, rx = 0;
+  if (!REDUCED && inWalk){
+    const t = (now || performance.now()) / 1000;
+    sx = Math.sin(t * 0.55) * SWAY.x;
+    sy = Math.sin(t * 0.83 + 1.3) * SWAY.y;
+    sz = Math.sin(t * 0.37 + 0.6) * SWAY.z;
+    tiltX += (tiltTX - tiltX) * 0.04;  // slow ease so the lean never snaps
+    tiltY += (tiltTY - tiltY) * 0.04;
+    ry = -tiltX * SWAY.tilt;
+    rx =  tiltY * SWAY.tilt * 0.6;
+  }
+  world.style.transform =
+    'rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg) ' +
+    'translate3d(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px,' + Math.round(camZ + sz) + 'px)';
 
   // gate: stays solid until it is truly behind the camera plane.
   // it only disappears just before crossing the camera, by which point its
@@ -733,11 +878,14 @@ function render(camZ){
   backwall.classList.toggle('live', camZ >= DEPTH * 0.82);
 }
 
-function tick(){
+function tick(now){
   const d = targetZ - cam;
   if (REDUCED){ cam = targetZ; }
   else { cam += Math.abs(d) < 0.1 ? d : d * 0.14; }
-  if (cam !== lastCam){ render(cam); lastCam = cam; }
+  // sway means every frame is a new frame while the corridor is on screen; once the
+  // visitor is past it we go back to rendering only when the camera actually moves
+  const swaying = !REDUCED && inWalk;
+  if (swaying || cam !== lastCam){ render(cam, now); lastCam = cam; }
   requestAnimationFrame(tick);
 }
 
@@ -776,7 +924,6 @@ function buildGallery(){
   });
 }
 
-const SHABBAT_PICKS = [17, 6, 14, 13, 18];
 function buildStrip(){
   const s = document.getElementById('strip');
   SHABBAT_PICKS.forEach((pi, i) => {
@@ -795,7 +942,6 @@ function buildStrip(){
   });
 }
 
-const PRINT_PICKS = [0, 6, 17];
 function buildPrints(){
   const g = document.getElementById('printsGrid');
   PRINT_PICKS.forEach(pi => {
@@ -824,7 +970,7 @@ function buildPrints(){
 
 function buildAbout(){
   const img = document.getElementById('portrait');
-  const u = url(PHOTOS[16].id, 800); img.src = u; setDims(img, u);
+  const u = url(PORTRAIT_ID || PHOTOS[PORTRAIT_PICK].id, 800); img.src = u; setDims(img, u);
   withRetry(img);
 }
 
@@ -990,12 +1136,16 @@ function enable2D(){
 // (buildGallery / buildStrip / buildPrints already set loading='lazy'), and the deeper
 // corridor frames plus the portrait are warmed in the background the instant the site
 // is revealed — long before anyone scrolls far enough to see them.
-const PRELOAD_URLS = CORRIDOR_PICKS.slice(0, 4).map(i => url(PHOTOS[i].id));
-
-preloadAll(PRELOAD_URLS, p => {
-  const pct = Math.round(p * 100);
-  ldFill.style.width = pct + '%';
-  ldPct.textContent = pct + '%';
+// The sheet is fetched first (it decides WHICH four photographs those are). It is a
+// few KB and usually back in well under a second; if it is not back in SHEET_TIMEOUT
+// the FALLBACK list is used and the opening proceeds exactly as before.
+loadSheet().then(() => {
+  const PRELOAD_URLS = CORRIDOR_PICKS.slice(0, 4).map(i => url(PHOTOS[i].id));
+  return preloadAll(PRELOAD_URLS, p => {
+    const pct = Math.round(p * 100);
+    ldFill.style.width = pct + '%';
+    ldPct.textContent = pct + '%';
+  });
 }).then(start);
 
 // mobile: ignore tiny height changes from the browser address bar —
@@ -1015,7 +1165,7 @@ window.addEventListener('resize', () => {
 // actually looking at. By the time they have walked the corridor these are all cached.
 function warmRest(){
   const rest = CORRIDOR_PICKS.slice(4).map(i => url(PHOTOS[i].id))
-                 .concat([ url(PHOTOS[16].id, 800) ]);
+                 .concat([ url(PORTRAIT_ID || PHOTOS[PORTRAIT_PICK].id, 800) ]);
   let k = 0;
   (function next(){
     if (k >= rest.length) return;
