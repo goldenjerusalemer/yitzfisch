@@ -1,0 +1,45 @@
+# Any JPG/PNG pushed into /img is shrunk for the web automatically:
+# longest edge 2000px, quality 85, metadata stripped, sRGB.
+# The result is committed back to main, so the repo only ever holds
+# web-ready originals. Netlify Image CDN then serves WebP/AVIF on the fly.
+name: Optimize images
+
+on:
+  push:
+    branches: [main]
+    paths: ["img/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shrink oversized images
+        run: |
+          set -e
+          shopt -s nullglob nocaseglob
+          changed=0
+          for f in img/*.jpg img/*.jpeg img/*.png; do
+            read w h < <(identify -format "%w %h" "$f[0]")
+            size=$(stat -c %s "$f")
+            if [ "$w" -gt 2000 ] || [ "$h" -gt 2000 ] || [ "$size" -gt 900000 ]; then
+              echo "optimizing $f (${w}x${h}, ${size} bytes)"
+              mogrify -auto-orient -resize '2000x2000>' -strip -colorspace sRGB \
+                      -quality 85 -sampling-factor 4:2:0 -interlace Plane "$f"
+              changed=1
+            fi
+          done
+          echo "changed=$changed" >> "$GITHUB_ENV"
+
+      - name: Commit optimized images
+        if: env.changed == '1'
+        run: |
+          git config user.name  "image-optimizer"
+          git config user.email "actions@users.noreply.github.com"
+          git add img
+          git commit -m "Optimize images for web [skip ci]"
+          git push
