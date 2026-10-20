@@ -1,0 +1,11 @@
+# yitzfisch.com — static site, no build step.
+# index.html lives at the repo root; photos go in /img and are served
+# through Netlify Image CDN (/.netlify/images?url=/img/<file>&w=...).
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
