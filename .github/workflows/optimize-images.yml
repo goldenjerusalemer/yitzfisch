@@ -1,7 +1,7 @@
-# Any JPG/PNG pushed into /img is shrunk for the web automatically:
-# longest edge 2000px, quality 85, metadata stripped, sRGB.
-# The result is committed back to main, so the repo only ever holds
-# web-ready originals. Netlify Image CDN then serves WebP/AVIF on the fly.
+# Any JPG/PNG pushed into /img is converted to a web-ready WebP automatically:
+# longest edge 2000px, quality 82, metadata stripped, sRGB. The original
+# JPG/PNG is removed from the repo so only the WebP stays. Oversized WebPs
+# pushed directly are shrunk the same way.
 name: Optimize images
 
 on:
@@ -18,18 +18,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Shrink oversized images
+      - name: Convert to WebP
         run: |
           set -e
           shopt -s nullglob nocaseglob
           changed=0
-          for f in img/*.jpg img/*.jpeg img/*.png; do
-            read w h < <(identify -format "%w %h" "$f[0]")
-            size=$(stat -c %s "$f")
-            if [ "$w" -gt 2000 ] || [ "$h" -gt 2000 ] || [ "$size" -gt 900000 ]; then
-              echo "optimizing $f (${w}x${h}, ${size} bytes)"
-              mogrify -auto-orient -resize '2000x2000>' -strip -colorspace sRGB \
-                      -quality 85 -sampling-factor 4:2:0 -interlace Plane "$f"
+          for f in img/*.jpg img/*.jpeg img/*.png img/*.tif img/*.tiff; do
+            out="img/$(basename "${f%.*}").webp"
+            echo "converting $f -> $out"
+            convert "$f[0]" -auto-orient -resize '2000x2000>' -strip -colorspace sRGB \
+                    -quality 82 -define webp:method=6 "$out"
+            git rm -q "$f"
+            changed=1
+          done
+          for f in img/*.webp; do
+            read w h < <(identify -format "%w %h" "$f")
+            if [ "$w" -gt 2000 ] || [ "$h" -gt 2000 ]; then
+              echo "shrinking $f (${w}x${h})"
+              mogrify -resize '2000x2000>' -strip -quality 82 -define webp:method=6 "$f"
               changed=1
             fi
           done
@@ -40,6 +46,6 @@ jobs:
         run: |
           git config user.name  "image-optimizer"
           git config user.email "actions@users.noreply.github.com"
-          git add img
-          git commit -m "Optimize images for web [skip ci]"
+          git add -A img
+          git commit -m "Convert images to web-ready WebP [skip ci]"
           git push
