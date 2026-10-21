@@ -358,6 +358,12 @@ footer .logo-img{height:34px;width:auto;margin:0 auto 10px;}
 #lb .info{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);text-align:center;}
 #lb .info b{font-family:'Playfair Display',serif;font-weight:500;font-size:17px;color:#F6F2EA;display:block;}
 #lb .info span{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);}
+#lb .info{max-width:min(88vw,640px);}
+#lb .info p{margin:8px 0 0;font-size:13px;line-height:1.5;color:#D9D0C2;font-style:italic;}
+#lb .info p:empty{display:none;}
+#lb .info a{display:inline-block;margin-top:8px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#B9A17A;text-decoration:none;border-bottom:1px solid rgba(185,161,122,.4);padding-bottom:2px;}
+#lb .info a:empty{display:none;}
+#lb .info a:hover{color:var(--gold);}
 
 /* ───────── LOADER — nothing shows until every image is downloaded & decoded ───────── */
 #loader{
@@ -506,7 +512,7 @@ body.loading{overflow:hidden;height:100vh;}
   <span class="ar prev" id="lbP">‹</span>
   <span class="ar next" id="lbN">›</span>
   <img id="lbImg" alt="">
-  <div class="info"><b id="lbT"></b><span id="lbL"></span></div>
+  <div class="info"><b id="lbT"></b><span id="lbL"></span><p id="lbC"></p><a id="lbNo" href="#"></a></div>
 </div>
 
 <script>
@@ -587,6 +593,12 @@ const url = (id, w) => /\./.test(id)
   ? '/.netlify/images?url=' + encodeURIComponent('/img/' + id) + '&w=' + (w||IMGW) + '&q=82'
   : 'https://lh3.googleusercontent.com/d/' + id + '=w' + (w||IMGW);
 const EMAIL = 'info@yitzfisch.com';
+// every print inquiry carries the image number so an order is never ambiguous
+const inquiryLink = p => {
+  const ref = p.no ? p.no + ' · ' + p.t : p.t;
+  return 'mailto:' + EMAIL + '?subject=' + encodeURIComponent('Print inquiry: ' + ref) +
+    '&body=' + encodeURIComponent('Hi Yitz,\n\nI am interested in a print of ' + ref + '.\n\nThank you');
+};
 
 // ─────────────────────────────────────────────
 // GOOGLE SHEET → PHOTOS
@@ -624,7 +636,10 @@ function applySheet(csv){
   const col = name => head.indexOf(name);
   const cFile = col('file') >= 0 ? col('file') : col('file_id');
   const cTitle = col('title'), cLoc = col('location'), cAlbum = col('album');
-  const cCorr = col('corridor'), cSeries = col('series'), cPrint = col('print'), cPort = col('portrait'), cOrder = col('order');
+  const cCorr = col('corridor') >= 0 ? col('corridor') : col('featured');
+  const cSeries = col('series'), cPort = col('portrait'), cOrder = col('order');
+  const cPrint = col('print') >= 0 ? col('print') : col('print_available');
+  const cNo = col('id') >= 0 ? col('id') : col('no'), cCap = col('caption'), cKw = col('keywords');
 
   const list = [];
   for (let r = hi + 1; r < rows.length; r++){
@@ -632,13 +647,18 @@ function applySheet(csv){
     const file = String(row[cFile] || '').trim();
     if (!file) break;                              // first empty file cell = end of data
     if (/^(#|\/\/|legend|example)/i.test(file)) break;
-    const num = c => { const v = parseFloat(row[c]); return c >= 0 && !isNaN(v) ? v : null; };
+    // a number ranks the photo in that list; a plain "yes" also counts, ranked by sheet order
+    const num = c => { if (c < 0) return null; const v = parseFloat(row[c]); if (!isNaN(v)) return v;
+                       return /^(y|yes|x|true)$/i.test(String(row[c] || '').trim()) ? 1000 + r : null; };
     const yes = c => c >= 0 && /^(y|yes|x|true|1)$/i.test(String(row[c] || '').trim());
     list.push({
       id: file,
       t: String(cTitle >= 0 ? row[cTitle] || '' : '').trim() || file.replace(/\.[^.]+$/, ''),
       l: String(cLoc >= 0 ? row[cLoc] || '' : '').trim() || 'Jerusalem',
       album: String(cAlbum >= 0 ? row[cAlbum] || '' : '').trim(),
+      no: String(cNo >= 0 ? row[cNo] || '' : '').trim(),
+      cap: String(cCap >= 0 ? row[cCap] || '' : '').trim(),
+      kw: String(cKw >= 0 ? row[cKw] || '' : '').trim(),
       corridor: num(cCorr), series: num(cSeries), print: num(cPrint),
       portrait: yes(cPort), order: num(cOrder)
     });
@@ -897,7 +917,7 @@ function buildGallery(){
     d.className = 'm-item';
     const img = document.createElement('img');
     const u = url(p.id); img.src = u; setDims(img, u);
-    img.alt = p.t;
+    img.alt = p.t + (p.kw ? ' — ' + p.kw : '') + ' — Jerusalem street photography by Yitz Fisch';
     img.loading = 'lazy';
     img.decoding = 'async';
     withRetry(img);
@@ -956,9 +976,7 @@ function buildPrints(){
     const a = document.createElement('a');
     a.className = 'btn-gold';
     a.textContent = 'Inquire';
-    a.href = 'mailto:' + EMAIL + '?subject=' +
-      encodeURIComponent('Print Inquiry — ' + p.t) +
-      '&body=' + encodeURIComponent('Hi Yitz,\n\nI\'m interested in a print of "' + p.t + '".\n\nThank you');
+    a.href = inquiryLink(p);
     c.appendChild(img); c.appendChild(b); c.appendChild(ed); c.appendChild(a);
     g.appendChild(c);
   });
@@ -984,6 +1002,10 @@ function renderLb(){
   lbImg.src = url(p.id, window.innerWidth < 640 ? 1000 : 1400);
   document.getElementById('lbT').textContent = p.t;
   document.getElementById('lbL').textContent = p.l;
+  document.getElementById('lbC').textContent = p.cap || '';
+  const a = document.getElementById('lbNo');
+  a.textContent = p.no ? 'No. ' + p.no + ' · Inquire about a print' : '';
+  a.href = p.no ? inquiryLink(p) : '#';
 }
 function closeLb(){
   lb.classList.remove('open');
