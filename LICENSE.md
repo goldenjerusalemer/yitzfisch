@@ -9,3 +9,5 @@ form without written permission. Prints are available at yitzfisch.com.
 
 The site code (HTML, CSS, JavaScript, configuration) may be referenced for
 learning purposes but is not licensed for reuse.
+
+Last updated: 2026-10-21
