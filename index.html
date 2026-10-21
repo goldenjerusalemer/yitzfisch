@@ -285,7 +285,7 @@ section{padding:110px 6vw;}
   box-shadow:0 6px 22px rgba(96,76,46,.14);
 }
 @media(max-width:560px){.m-item{margin-bottom:10px}}
-.m-item img{width:100%;transition:transform .7s ease;}
+.m-item img{width:100%;height:auto;transition:transform .7s ease;}
 /* Until a photo's real proportions are known, reserve a sensible box so the masonry
    never collapses to zero height and then reflow-jumps. The moment the photo loads,
    its true width/height attributes are set (see buildGallery) and take over, so
@@ -544,10 +544,7 @@ const SHEET_TIMEOUT = 2500; // ms to wait for the sheet before falling back
 // rows and the JPGs are in /img, this list is only a safety net.
 const FALLBACK = [
   { id:'132TEjaqItWoTdTM2xcwBgJ7VvidkQ-5K', t:'Golden Hour',     l:'Jerusalem' },
-  { id:'1geR6c37hlLv6XHCUiD7aZ94wkBiiKUNG', t:'The Walk',        l:'Old City' },
-  { id:'1D7CIyiPFqwigZpyhCkMAuw2OrbOFLneQ', t:'Afternoon Light', l:'Jerusalem' },
   { id:'1zxRq4oZLys4TGuhxfhJenrgaM__qR0ut', t:'Moment',          l:'Jerusalem' },
-  { id:'1z68k7ZQynuy9d2M5z9ksLlvJWyBIx4pU', t:'The Street',      l:'Old City' },
   { id:'1-ccYcSsI3EImzPwRvn51Ml0MOofViLdO', t:'End of Day',      l:'Jerusalem' },
   { id:'129t1vsTX7d5KLivujF11ZqzStQBgWmav', t:'Prayer',          l:'Western Wall' },
   { id:'1Z630MR2893y7lvK5bK62mP3FOLSloRBq', t:'Stillness',       l:'Jerusalem' },
@@ -559,7 +556,6 @@ const FALLBACK = [
   { id:'1pWZoVnBod2TTXowqAGygvYPaMb1USy9C', t:'Sunrise',         l:'Jerusalem' },
   { id:'1eENwpC3KltsYLpDaPeRM-vNiGVXT0vP2', t:'Morning',         l:'Old City' },
   { id:'1GBRARdUM-Mf8HBxmowBb7mnFJbJqIA6V', t:'The Gate',        l:'Jerusalem' },
-  { id:'1iuFRYsWcNKVUWa6olLX_02fMyTofjCyh', t:'Wanderer',        l:'Jerusalem' },
   { id:'1zSDU7b5pgKLYaCRSweSG7sTU-epE_4G6', t:'Last Light',      l:'Western Wall' },
   { id:'12hjgNH5yftP7YFUb1GGG992k5HWRkMyx', t:'Gathering',       l:'Jerusalem' },
   { id:'1XagLrXSLeYel9ejRYftRiP48wb6TW3SI', t:'The Walk II',     l:'Old City' },
@@ -567,10 +563,10 @@ const FALLBACK = [
 // Which photos go where. These are indices into PHOTOS. The sheet overrides them
 // (corridor / series / print / portrait columns); these are the fallback picks.
 let PHOTOS        = FALLBACK;
-let CORRIDOR_PICKS = [0, 6, 11, 4, 17, 8, 2, 14, 9, 5];
-let SHABBAT_PICKS  = [17, 6, 14, 13, 18];
-let PRINT_PICKS    = [0, 6, 17];
-let PORTRAIT_PICK  = 16;   // index into PHOTOS (fallback only)
+let CORRIDOR_PICKS = [0, 3, 8, 1, 13, 5, 10, 11, 6, 2];
+let SHABBAT_PICKS  = [13, 3, 11, 10, 14];
+let PRINT_PICKS    = [0, 3, 13];
+let PORTRAIT_PICK  = 11;   // index into PHOTOS (fallback only)
 let PORTRAIT_ID    = null; // set from the sheet's portrait row, which stays out of the gallery
 
 // ── RESOLUTION KNOB ──────────────────────────────────────────────
