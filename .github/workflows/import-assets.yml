@@ -1,0 +1,40 @@
+name: Import gen-8 assets
+on:
+  push:
+    branches: [new-gallery]
+    paths: ['import/**']
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: new-gallery
+      - name: Assemble, verify, extract
+        run: |
+          set -e
+          [ -f import/MANIFEST.txt ] || { echo "parts still uploading - no-op"; exit 0; }
+          parts=$(ls import/part-* | wc -l)
+          want=$(grep '^PARTS=' import/MANIFEST.txt | cut -d= -f2)
+          [ "$parts" = "$want" ] || { echo "have $parts of $want parts - no-op"; exit 0; }
+          cat import/part-* | base64 -d > /tmp/assets.zip
+          echo "$(grep '^SHA256=' import/MANIFEST.txt | cut -d= -f2)  /tmp/assets.zip" | sha256sum -c -
+          mkdir -p /tmp/assets && unzip -oq /tmp/assets.zip -d /tmp/assets
+          cp /tmp/assets/site.css ./site.css
+          cp /tmp/assets/img/* ./img/
+      - name: Commit assets
+        run: |
+          git config user.name "asset-importer"
+          git config user.email "actions@users.noreply.github.com"
+          git add site.css img
+          git commit -m "Add site.css and gallery images (gen 8)" || echo "no changes"
+          git push origin new-gallery
+      - name: Remove import scaffolding
+        run: |
+          git config user.name "asset-importer"
+          git config user.email "actions@users.noreply.github.com"
+          git rm -rq import .github/workflows/import-assets.yml
+          git commit -m "Remove asset import scaffolding"
+          git push origin new-gallery
