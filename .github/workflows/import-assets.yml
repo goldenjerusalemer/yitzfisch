@@ -2,7 +2,7 @@ name: Import gen-8 assets
 on:
   push:
     branches: [new-gallery]
-    paths: ['import/**']
+    paths: ['.github/workflows/import-assets.yml']
 permissions:
   contents: write
 jobs:
@@ -12,15 +12,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: new-gallery
-      - name: Assemble, verify, extract
+      - name: Download, verify, extract
         run: |
           set -e
-          [ -f import/MANIFEST.txt ] || { echo "parts still uploading - no-op"; exit 0; }
-          parts=$(ls import/part-* | wc -l)
-          want=$(grep '^PARTS=' import/MANIFEST.txt | cut -d= -f2)
-          [ "$parts" = "$want" ] || { echo "have $parts of $want parts - no-op"; exit 0; }
-          cat import/part-* | base64 -d > /tmp/assets.zip
-          echo "$(grep '^SHA256=' import/MANIFEST.txt | cut -d= -f2)  /tmp/assets.zip" | sha256sum -c -
+          curl -fsSL 'https://drive.usercontent.google.com/download?id=1ZhxKmKi4EgGjeOgXI96yS3wwgelkm0xD&export=download&confirm=t' -o /tmp/assets.zip
+          echo '699ac98225d45c77938ac1c32d9f6033f5fb1ff05ef0e11e29aa60f05cd8b5a3  /tmp/assets.zip' | sha256sum -c -
           mkdir -p /tmp/assets && unzip -oq /tmp/assets.zip -d /tmp/assets
           cp /tmp/assets/site.css ./site.css
           cp /tmp/assets/img/* ./img/
@@ -29,12 +25,14 @@ jobs:
           git config user.name "asset-importer"
           git config user.email "actions@users.noreply.github.com"
           git add site.css img
-          git commit -m "Add site.css and gallery images (gen 8)" || echo "no changes"
+          if git diff --cached --quiet; then echo "already imported"; exit 0; fi
+          git commit -m "Add site.css and gallery images (gen 8)"
           git push origin new-gallery
-      - name: Remove import scaffolding
+      - name: Remove this workflow
         run: |
           git config user.name "asset-importer"
           git config user.email "actions@users.noreply.github.com"
-          git rm -rq import .github/workflows/import-assets.yml
-          git commit -m "Remove asset import scaffolding"
+          [ -f .github/workflows/import-assets.yml ] || { echo "already removed"; exit 0; }
+          git rm -q .github/workflows/import-assets.yml
+          git commit -m "Remove asset import workflow"
           git push origin new-gallery
