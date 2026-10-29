@@ -28,7 +28,8 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     gl.depthFunc(gl.LEQUAL);
     gl.clearColor(.965, .949, .918, 1);
     let camera = 0;
-    let width = 390, height = 740, hw = 220;
+    let width = 390, height = 740, hw = 220, Z = 1;
+    const FOCAL = 820, CY = .46, FS = 1.5;
     const objects = [];
     function texture(source) {
         const t = gl.createTexture();
@@ -76,12 +77,21 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     const frameImages = Array.from(stage.querySelectorAll('.frame .mat img'));
     const images = picks.map((i, k) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.src = frameImages[k]?.src || url(photos[i].id); return im; });
     const waitImage = (im) => im.decode().catch(() => { });
+    // Gate styles: exact logo icon geometry (measured from the logo art: frame 9.6%, dot 19.6% centered at 50% / 32.9%).
+    const gateStyle = document.createElement('style');
+    gateStyle.textContent = `.webgl-gate{top:46%!important;border:0!important;display:block!important;border-radius:0;container-type:inline-size}
+.webgl-gate::before{content:'';position:absolute;inset:0;box-sizing:border-box;border:9.6cqw solid #bfa269}
+.webgl-gate-dot{position:absolute;left:50%;top:32.9%;width:19.6%;aspect-ratio:1;border-radius:50%;background:#bfa269;transform:translate(-50%,-50%);margin:0}
+.webgl-gate-tag{position:absolute;left:0;right:0;top:68%;text-align:center;font:italic 7cqw Georgia,serif!important;color:#a07e3c;white-space:nowrap}`;
+    stage.append(gateStyle);
     const entrance = document.createElement('div');
     entrance.className = 'webgl-gate';
+    // Gate = the real logo icon, same proportions as the nav logo (frame 9.6%, dot 19.6% centered at 50% / 32.9%).
     const gateDot = document.createElement('div');
-    gateDot.style.cssText = 'width:18%;aspect-ratio:1;border-radius:50%;background:#a07e3c;margin-bottom:6%;';
+    gateDot.className = 'webgl-gate-dot';
     entrance.append(gateDot);
     const gateTag = document.createElement('div');
+    gateTag.className = 'webgl-gate-tag';
     gateTag.textContent = 'Light. Framed.';
     entrance.append(gateTag);
     stage.append(entrance);
@@ -109,7 +119,7 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
         back(-4400, hw * 2, height * 1.1, endTexture);
         images.forEach((im, i) => {
             const pair = Math.floor(i / 2), s = i % 2 === 0 ? -1 : 1, z = -(1150 + pair * 580);
-            const h = pair % 2 === 0 ? 336 : 264, w = pair % 2 === 0 ? 264 : 336, x = s * (hw - 10);
+            const h = (pair % 2 === 0 ? 336 : 264) * FS, w = (pair % 2 === 0 ? 264 : 336) * FS, x = s * (hw - 10);
             // One physical plane with non-overlapping rings: all four frame edges stay visible.
             function ring(yi, zi, yt, zt, t) { const y0 = -h / 2 + yi, y1 = h / 2 - yi, z0 = z - w / 2 + zi, z1 = z + w / 2 - zi; side(s, y0, y0 + yt, z0, z1, t, x); side(s, y1 - yt, y1, z0, z1, t, x); side(s, y0 + yt, y1 - yt, z0, z0 + zt, t, x); side(s, y0 + yt, y1 - yt, z1 - zt, z1, t, x); }
             ring(0, 0, 10, 28, wood);
@@ -120,15 +130,15 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     }
     const hits = images.map((im, i) => { const button = document.createElement('button'); button.className = 'corridor-photo-hit'; button.type = 'button'; button.setAttribute('aria-label', 'Open photograph: ' + photos[picks[i]].t); let sx = 0, sy = 0; button.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; }); button.addEventListener('click', e => { if (e.detail === 0 || Math.hypot(e.clientX - sx, e.clientY - sy) < 18)
         onOpen(picks[i]); }); stage.append(button); return button; });
-    function updateHits() { hits.forEach((button, i) => { const pair = Math.floor(i / 2), s = i % 2 === 0 ? -1 : 1, z = -(1150 + pair * 580), h = pair % 2 === 0 ? 336 : 264, w = pair % 2 === 0 ? 264 : 336, x = s * (hw - 10); const points = [[x, -h / 2, z - w / 2], [x, -h / 2, z + w / 2], [x, h / 2, z + w / 2], [x, h / 2, z - w / 2]]; const projected = points.map(([x, y, z]) => { const d = 820 - z - camera; return [width / 2 + 820 * x / d, height * .54 + 820 * y / d, d]; }); if (projected.some(p => p[2] < 100) || camera >= 4399) {
+    function updateHits() { hits.forEach((button, i) => { const pair = Math.floor(i / 2), s = i % 2 === 0 ? -1 : 1, z = -(1150 + pair * 580), h = (pair % 2 === 0 ? 336 : 264) * FS, w = (pair % 2 === 0 ? 264 : 336) * FS, x = s * (hw - 10); const points = [[x, -h / 2, z - w / 2], [x, -h / 2, z + w / 2], [x, h / 2, z + w / 2], [x, h / 2, z - w / 2]]; const projected = points.map(([x, y, z]) => { const d = 820 - z - camera; return [width / 2 + FOCAL * Z * x / d, height * CY + FOCAL * Z * y / d, d]; }); if (projected.some(p => p[2] < 100) || camera >= 4399) {
         button.hidden = true;
         return;
     } const xs = projected.map(p => p[0]), ys = projected.map(p => p[1]), left = Math.min(...xs), top = Math.min(...ys), bw = Math.max(...xs) - left, bh = Math.max(...ys) - top; button.hidden = left > width || left + bw < 0 || top > height || top + bh < 0; button.style.left = left + 'px'; button.style.top = top + 'px'; button.style.width = bw + 'px'; button.style.height = bh + 'px'; button.style.clipPath = 'polygon(' + projected.map(p => ((p[0] - left) / bw * 100) + '% ' + ((p[1] - top) / bh * 100) + '%').join(',') + ')'; }); }
-    function resize() { const r = stage.getBoundingClientRect(); width = r.width; height = r.height; hw = Math.min(430, Math.max(220, width * .42)); const d = Math.min(window.devicePixelRatio || 1, 2.5); canvas.width = Math.round(width * d); canvas.height = Math.round(height * d); gl.viewport(0, 0, canvas.width, canvas.height); build(); draw(camera); }
-    function draw(value) { camera = value; updateHits(); canvas.style.visibility = camera >= 4399 ? 'hidden' : 'visible'; stage.classList.toggle('webgl-arrived', camera >= 4399); const gateDist = 1240 - camera; const gateSize = Math.min(640, hw * 1.86, height * .84); entrance.style.width = gateSize + 'px'; entrance.style.height = gateSize + 'px'; entrance.style.transform = 'translate(-50%,-50%) scale(' + (820 / Math.max(1, gateDist)) + ')'; entrance.style.visibility = gateDist > 50 ? 'visible' : 'hidden'; end.style.opacity = String(Math.min(1, Math.max(0, (camera - 600) / 500))); const dist = 820 + 4400 - camera; end.style.width = (hw * 2) + 'px'; end.style.height = (height * 1.1) + 'px'; end.style.transform = 'translate(-50%,-50%) scale(' + (820 / dist) + ')'; end.style.pointerEvents = camera >= 3500 ? 'auto' : 'none'; gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); const coords = [[0, 1], [1, 1], [1, 0], [0, 0]], order = [0, 1, 2, 0, 2, 3], f = 820 / (height / 2), aspect = width / height, n = 48, far = 12000, A = (far + n) / (far - n), B = -2 * far * n / (far - n); objects.forEach(o => { const zs = o.points.map(p => p[2]); if (Math.max(...zs) - Math.min(...zs) < 400 && Math.max(...zs) - Math.min(...zs) > 0 && 820 - (zs.reduce((a, b) => a + b, 0) / 4) - camera < 100)
+    function resize() { const r = stage.getBoundingClientRect(); width = r.width; height = r.height; hw = Math.min(430, Math.max(220, width * .75)); const d = Math.min(window.devicePixelRatio || 1, 2.5); canvas.width = Math.round(width * d); canvas.height = Math.round(height * d); gl.viewport(0, 0, canvas.width, canvas.height); build(); draw(camera); }
+    function draw(value) { camera = value; updateHits(); canvas.style.visibility = camera >= 4399 ? 'hidden' : 'visible'; stage.classList.toggle('webgl-arrived', camera >= 4399); const gateDist = 1240 - camera; const gateSize = hw * 1.86; entrance.style.width = gateSize + 'px'; entrance.style.height = gateSize + 'px'; entrance.style.transform = 'translate(-50%,-50%) scale(' + (FOCAL * Z / Math.max(1, gateDist)) + ')'; entrance.style.visibility = gateDist > 50 ? 'visible' : 'hidden'; end.style.opacity = String(Math.min(1, Math.max(0, (camera - 600) / 500))); const dist = 820 + 4400 - camera; end.style.width = (hw * 2) + 'px'; end.style.height = (height * 1.1) + 'px'; end.style.transform = 'translate(-50%,-50%) scale(' + (FOCAL * Z / dist) + ')'; end.style.pointerEvents = camera >= 3500 ? 'auto' : 'none'; gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); const coords = [[0, 1], [1, 1], [1, 0], [0, 0]], order = [0, 1, 2, 0, 2, 3], f = 820 * Z / (height / 2), aspect = width / height, n = 48, far = 12000, A = (far + n) / (far - n), B = -2 * far * n / (far - n); objects.forEach(o => { const zs = o.points.map(p => p[2]); if (Math.max(...zs) - Math.min(...zs) < 400 && Math.max(...zs) - Math.min(...zs) > 0 && 820 - (zs.reduce((a, b) => a + b, 0) / 4) - camera < 100)
         return; const vertices = []; for (const i of order) {
         const [x, y, z] = o.points[i], d = 820 - z - camera;
-        vertices.push(x * f / aspect, -y * f + (height * .04) * d / (height / 2), A * d + B, d, ...coords[i]);
+        vertices.push(x * f / aspect, -y * f + 2 * (.5 - CY) * d, A * d + B, d, ...coords[i]);
     } gl.bindTexture(gl.TEXTURE_2D, o.texture); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, 6); }); }
     resize();
     new ResizeObserver(resize).observe(stage);
