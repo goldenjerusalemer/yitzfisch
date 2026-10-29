@@ -92,10 +92,6 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     brand.alt = 'YitzFisch logo';
     brand.style.width = '18%';
     end.append(brand);
-    const tag = document.createElement('div');
-    tag.className = 'webgl-end-tag';
-    tag.textContent = 'Light. Framed.';
-    end.append(tag);
     const menu = document.createElement('nav');
     menu.setAttribute('aria-label', 'Back wall menu');
     [['Gallery', 'gallery'], ['Shabbat Shalom', 'shabbat'], ['Prints', 'prints'], ['About', 'about']].forEach(([label, id]) => { const link = document.createElement('a'); link.href = '#' + id; link.textContent = label; link.addEventListener('click', e => { e.preventDefault(); const target = document.getElementById(id); const sc = stage.closest('.site-scroll'); if (target && sc)
