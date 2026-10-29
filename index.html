@@ -7,6 +7,21 @@
    hidden gate so Android cannot count it as overflow after the footer.
    Desktop preserve-3d is deliberately not clipped. */
 body.phonewalk .stage{overflow:hidden}
+/* Desktop series strip: hover arrows on both sides. Hidden on touch and phones. */
+.strip-wrap{position:relative}
+.strip-arrow{display:none}
+@media(min-width:901px) and (hover:hover) and (pointer:fine){
+.strip-arrow{display:flex;align-items:center;justify-content:center;position:absolute;top:190px;width:52px;height:52px;border-radius:50%;z-index:5;border:1px solid #b8933e;background:rgba(251,247,238,.94);box-shadow:0 4px 14px rgba(60,44,20,.22);padding:0 0 4px;cursor:pointer;color:#8a6a24;font-size:2rem;line-height:1;transition:opacity .25s,background .2s,color .2s}
+.strip-arrow.prev{left:-26px}
+.strip-arrow.next{right:-26px}
+.strip-arrow:hover{background:#b8933e;color:#fbf7ee}
+.strip-arrow[disabled]{opacity:0;pointer-events:none}
+.strip.hovering{scroll-snap-type:none!important}
+}
+
+/* Desktop gallery: five narrower columns. Phones (<=900px) keep their layout. */
+@media(min-width:901px){.site-scroll .masonry{columns:5;column-gap:14px}.site-scroll .m-item{margin-bottom:14px}}
+
 /* Keep the early walk speed, then cross the empty final stretch faster. */
 body.phonewalk #walk{height:calc(var(--site-height) * 2.0)}
 </style></head><body class="loading"><div class="site-scroll"><div id="site-root">
@@ -87,8 +102,35 @@ body.phonewalk #walk{height:calc(var(--site-height) * 2.0)}
     <div class="gold-line"></div>
     <p class="sec-sub">A series documenting the arrival of Shabbat across Jerusalem's neighborhoods — the quiet before, the candles, the streets emptying into stillness.</p>
   </div>
-  <div class="strip" id="strip"></div>
+  <div class="strip-wrap">
+    <button class="strip-arrow prev" id="stripPrev" type="button" aria-label="Scroll series left">&#8249;</button>
+    <div class="strip" id="strip"></div>
+    <button class="strip-arrow next" id="stripNext" type="button" aria-label="Scroll series right">&#8250;</button>
+  </div>
 </section>
+<script>
+(function(){
+  var s=document.getElementById('strip'),p=document.getElementById('stripPrev'),n=document.getElementById('stripNext');
+  if(!s||!p||!n||!window.matchMedia('(hover:hover) and (pointer:fine)').matches)return;
+  var dir=0,raf=0,last=0;
+  function upd(){var m=s.scrollWidth-s.clientWidth;p.disabled=s.scrollLeft<=2;n.disabled=s.scrollLeft>=m-2;}
+  function step(t){
+    if(!dir){raf=0;s.classList.remove('hovering');return;}
+    var dt=Math.min(40,t-last);last=t;
+    s.scrollLeft+=dir*dt*0.9;upd();
+    raf=requestAnimationFrame(step);
+  }
+  function go(d){dir=d;if(d&&!raf){s.classList.add('hovering');last=performance.now();raf=requestAnimationFrame(step);}}
+  p.addEventListener('mouseenter',function(){go(-1)});
+  n.addEventListener('mouseenter',function(){go(1)});
+  p.addEventListener('mouseleave',function(){go(0)});
+  n.addEventListener('mouseleave',function(){go(0)});
+  s.addEventListener('scroll',upd,{passive:true});
+  window.addEventListener('resize',upd);
+  setInterval(upd,800);
+  upd();
+})();
+</script>
 
 <!-- ───────── ABOUT ───────── -->
 <section id="about">
