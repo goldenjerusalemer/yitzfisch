@@ -10,13 +10,16 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
         throw Error(gl.getShaderInfoLog(s) || 'shader'); return s; };
     const program = gl.createProgram();
     gl.attachShader(program, shader(gl.VERTEX_SHADER, 'attribute vec4 p;attribute vec2 uv;varying vec2 v;void main(){gl_Position=p;v=uv;}'));
-    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, 'precision mediump float;varying vec2 v;uniform sampler2D image;void main(){gl_FragColor=texture2D(image,v);}'));
+    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, 'precision mediump float;varying vec2 v;uniform sampler2D image;uniform sampler2D image2;uniform float fade;void main(){gl_FragColor=mix(texture2D(image,v),texture2D(image2,v),fade);}'));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         canvas.remove();
         throw Error('WebGL program unavailable');
     }
     gl.useProgram(program);
+    gl.uniform1i(gl.getUniformLocation(program, 'image'), 0);
+    gl.uniform1i(gl.getUniformLocation(program, 'image2'), 1);
+    const fadeLoc = gl.getUniformLocation(program, 'fade');
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const pos = gl.getAttribLocation(program, 'p'), uv = gl.getAttribLocation(program, 'uv');
@@ -53,7 +56,7 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
             gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
         return t;
     }
-    function painted(kind) { const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); x.fillStyle = kind === 'floor' ? '#dbceb6' : kind === 'wood' ? '#4a3823' : kind === 'mat' ? '#fbf7ee' : '#eee4d3'; x.fillRect(0, 0, 1024, 1024); if (kind === 'wall' || kind === 'floor') {
+    function painted(kind, grid) { const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); x.fillStyle = kind === 'floor' ? '#dbceb6' : kind === 'wood' ? '#4a3823' : kind === 'mat' ? '#fbf7ee' : '#eee4d3'; x.fillRect(0, 0, 1024, 1024); if ((kind === 'wall' || kind === 'floor') && grid !== false) {
         x.strokeStyle = kind === 'floor' ? '#b9a88b' : '#dfd2bc';
         x.lineWidth = 2;
         for (let i = 0; i < 1024; i += 128) {
@@ -71,9 +74,13 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
             }
     } return texture(c); }
     const wall = painted('wall'), floor = painted('floor'), wood = painted('wood'), mat = painted('mat');
-    function quad(points, t) { objects.push({ points, texture: t }); }
-    function side(s, y0, y1, z0, z1, t, x = hw * s) { quad([[x, y0, z0], [x, y0, z1], [x, y1, z1], [x, y1, z0]], t); }
-    function back(z, w, h, t) { quad([[-w / 2, -h / 2, z], [w / 2, -h / 2, z], [w / 2, h / 2, z], [-w / 2, h / 2, z]], t); }
+    // Gridless twins of the wall/floor textures: the corridor's blueprint grid dissolves
+    // into the clean plaster gradually as the walk nears the back wall, instead of the
+    // grid vanishing in a single frame when the canvas hands over to the menu wall.
+    const wallClean = painted('wall', false), floorClean = painted('floor', false);
+    function quad(points, t, t2) { objects.push({ points, texture: t, texture2: t2 || t }); }
+    function side(s, y0, y1, z0, z1, t, x = hw * s, t2) { quad([[x, y0, z0], [x, y0, z1], [x, y1, z1], [x, y1, z0]], t, t2); }
+    function back(z, w, h, t, t2) { quad([[-w / 2, -h / 2, z], [w / 2, -h / 2, z], [w / 2, h / 2, z], [-w / 2, h / 2, z]], t, t2); }
     const frameImages = Array.from(stage.querySelectorAll('.frame .mat img'));
     const images = picks.map((i, k) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.src = frameImages[k]?.src || url(photos[i].id); return im; });
     const waitImage = (im) => im.decode().catch(() => { });
@@ -112,11 +119,11 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     const photoTextures = new Map();
     function build() {
         objects.length = 0;
-        side(-1, -height * .55, height * .55, 700, -4400, wall);
-        side(1, -height * .55, height * .55, -4400, 700, wall);
-        quad([[-hw, height * .55, 700], [hw, height * .55, 700], [hw, height * .55, -4400], [-hw, height * .55, -4400]], floor);
-        quad([[-hw, -height * .55, -4400], [hw, -height * .55, -4400], [hw, -height * .55, 700], [-hw, -height * .55, 700]], wall);
-        back(-4400, hw * 2, height * 1.1, endTexture);
+        side(-1, -height * .55, height * .55, 700, -4400, wall, -hw, wallClean);
+        side(1, -height * .55, height * .55, -4400, 700, wall, hw, wallClean);
+        quad([[-hw, height * .55, 700], [hw, height * .55, 700], [hw, height * .55, -4400], [-hw, height * .55, -4400]], floor, floorClean);
+        quad([[-hw, -height * .55, -4400], [hw, -height * .55, -4400], [hw, -height * .55, 700], [-hw, -height * .55, 700]], wall, wallClean);
+        back(-4400, hw * 2, height * 1.1, endTexture, wallClean);
         images.forEach((im, i) => {
             const pair = Math.floor(i / 2), s = i % 2 === 0 ? -1 : 1, z = -(1150 + pair * 580);
             const h = (pair % 2 === 0 ? 336 : 264) * FS, w = (pair % 2 === 0 ? 264 : 336) * FS, x = s * (hw - 10);
@@ -135,14 +142,17 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
         return;
     } const xs = projected.map(p => p[0]), ys = projected.map(p => p[1]), left = Math.min(...xs), top = Math.min(...ys), bw = Math.max(...xs) - left, bh = Math.max(...ys) - top; button.hidden = left > width || left + bw < 0 || top > height || top + bh < 0; button.style.left = left + 'px'; button.style.top = top + 'px'; button.style.width = bw + 'px'; button.style.height = bh + 'px'; button.style.clipPath = 'polygon(' + projected.map(p => ((p[0] - left) / bw * 100) + '% ' + ((p[1] - top) / bh * 100) + '%').join(',') + ')'; }); }
     function resize() { const r = stage.getBoundingClientRect(); width = r.width; height = r.height; hw = Math.min(430, Math.max(220, width * .75)); const d = Math.min(window.devicePixelRatio || 1, 2.5); canvas.width = Math.round(width * d); canvas.height = Math.round(height * d); gl.viewport(0, 0, canvas.width, canvas.height); build(); draw(camera); }
-    function draw(value) { camera = value; updateHits(); canvas.style.visibility = camera >= 4399 ? 'hidden' : 'visible'; stage.classList.toggle('webgl-arrived', camera >= 4399); const gateDist = 1240 - camera; const gateSize = hw * 1.86; entrance.style.width = gateSize + 'px'; entrance.style.height = gateSize + 'px'; entrance.style.transform = 'translate(-50%,-50%) scale(' + (FOCAL * Z / Math.max(1, gateDist)) + ')'; entrance.style.visibility = gateDist > 50 ? 'visible' : 'hidden'; end.style.opacity = String(Math.min(1, Math.max(0, (camera - 600) / 500))); const dist = 820 + 4400 - camera; end.style.width = (hw * 2) + 'px'; end.style.height = (height * 1.1) + 'px'; end.style.transform = 'translate(-50%,-50%) scale(' + (FOCAL * Z / dist) + ')'; end.style.pointerEvents = camera >= 3500 ? 'auto' : 'none'; gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); const coords = [[0, 1], [1, 1], [1, 0], [0, 0]], order = [0, 1, 2, 0, 2, 3], f = 820 * Z / (height / 2), aspect = width / height, n = 48, far = 12000, A = (far + n) / (far - n), B = -2 * far * n / (far - n); objects.forEach(o => { const zs = o.points.map(p => p[2]); if (Math.max(...zs) - Math.min(...zs) < 400 && Math.max(...zs) - Math.min(...zs) > 0 && 820 - (zs.reduce((a, b) => a + b, 0) / 4) - camera < 100)
+    function draw(value) { camera = value; updateHits(); canvas.style.visibility = camera >= 4399 ? 'hidden' : 'visible'; stage.classList.toggle('webgl-arrived', camera >= 4399); const gateDist = 1240 - camera; const gateSize = hw * 1.86; entrance.style.width = gateSize + 'px'; entrance.style.height = gateSize + 'px'; entrance.style.transform = 'translate(-50%,-50%) scale(' + (FOCAL * Z / Math.max(1, gateDist)) + ')'; entrance.style.visibility = gateDist > 50 ? 'visible' : 'hidden'; end.style.opacity = String(Math.min(1, Math.max(0, (camera - 600) / 500))); const dist = 820 + 4400 - camera; end.style.width = (hw * 2) + 'px'; end.style.height = (height * 1.1) + 'px'; end.style.transform = 'translate(-50%,-50%) scale(' + (FOCAL * Z / dist) + ')'; end.style.pointerEvents = camera >= 3500 ? 'auto' : 'none'; gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); const coords = [[0, 1], [1, 1], [1, 0], [0, 0]], order = [0, 1, 2, 0, 2, 3], f = 820 * Z / (height / 2), aspect = width / height, n = 48, far = 12000, A = (far + n) / (far - n), B = -2 * far * n / (far - n); const gridFade = Math.min(1, Math.max(0, (camera - 3400) / 900)); objects.forEach(o => { const zs = o.points.map(p => p[2]); if (Math.max(...zs) - Math.min(...zs) < 400 && Math.max(...zs) - Math.min(...zs) > 0 && 820 - (zs.reduce((a, b) => a + b, 0) / 4) - camera < 100)
         return; const vertices = []; for (const i of order) {
         const [x, y, z] = o.points[i], d = 820 - z - camera;
         vertices.push(x * f / aspect, -y * f + 2 * (.5 - CY) * d, A * d + B, d, ...coords[i]);
-    } gl.bindTexture(gl.TEXTURE_2D, o.texture); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, 6); }); }
+    } gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.texture); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.texture2); gl.uniform1f(fadeLoc, o.texture2 === o.texture ? 0 : gridFade); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, 6); }); gl.activeTexture(gl.TEXTURE0); }
     resize();
     new ResizeObserver(resize).observe(stage);
-    Promise.all(images.map(waitImage)).then(() => { build(); draw(camera); });
+    // Rebuild as EACH photograph decodes instead of waiting for the slowest one —
+    // a late image now appears the moment it is ready, never a mid-walk wall of
+    // empty frames that suddenly all pop in at once.
+    images.forEach(im => waitImage(im).then(() => { build(); draw(camera); }));
     canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); canvas.style.display = 'none'; });
     return { draw, ready: Promise.all(images.map(waitImage)) };
 }
@@ -1011,7 +1021,7 @@ function initSite(root) {
     // few KB and usually back in well under a second; if it is not back in SHEET_TIMEOUT
     // the FALLBACK list is used and the opening proceeds exactly as before.
     loadSheet().then(() => {
-        const PRELOAD_URLS = CORRIDOR_PICKS.slice(0, 4).map(i => url(PHOTOS[i].id));
+        const PRELOAD_URLS = CORRIDOR_PICKS.map(i => url(PHOTOS[i].id));
         return preloadAll(PRELOAD_URLS, p => {
             const pct = Math.round(p * 100);
             ldFill.style.width = pct + '%';
