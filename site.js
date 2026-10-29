@@ -78,10 +78,9 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     const waitImage = (im) => im.decode().catch(() => { });
     const entrance = document.createElement('div');
     entrance.className = 'webgl-gate';
-    const gateLogo = document.createElement('img');
-    gateLogo.src = logo;
-    gateLogo.alt = 'YitzFisch';
-    entrance.append(gateLogo);
+    const gateDot = document.createElement('div');
+    gateDot.style.cssText = 'width:18%;aspect-ratio:1;border-radius:50%;background:#a07e3c;margin-bottom:6%;';
+    entrance.append(gateDot);
     const gateTag = document.createElement('div');
     gateTag.textContent = 'Light. Framed.';
     entrance.append(gateTag);
@@ -90,15 +89,12 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     end.className = 'webgl-end';
     const brand = document.createElement('img');
     brand.src = logo;
-    brand.alt = 'YitzFisch';
+    brand.alt = 'YitzFisch logo';
+    brand.style.width = '18%';
     end.append(brand);
-    const tag = document.createElement('div');
-    tag.className = 'webgl-end-tag';
-    tag.textContent = 'Light. Framed.';
-    end.append(tag);
     const menu = document.createElement('nav');
     menu.setAttribute('aria-label', 'Back wall menu');
-    [['Gallery', 'gallery'], ['Shabbat Shalom', 'shabbat'], ['About', 'about']].forEach(([label, id]) => { const link = document.createElement('a'); link.href = '#' + id; link.textContent = label; link.addEventListener('click', e => { e.preventDefault(); const target = document.getElementById(id); const sc = stage.closest('.site-scroll'); if (target && sc)
+    [['Gallery', 'gallery'], ['Shabbat Shalom', 'shabbat'], ['Prints', 'prints'], ['About', 'about']].forEach(([label, id]) => { const link = document.createElement('a'); link.href = '#' + id; link.textContent = label; link.addEventListener('click', e => { e.preventDefault(); const target = document.getElementById(id); const sc = stage.closest('.site-scroll'); if (target && sc)
         sc.scrollTo({ top: target.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop, behavior: 'instant' }); }); menu.append(link); });
     end.append(menu);
     stage.append(end);
