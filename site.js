@@ -493,7 +493,14 @@ function initSite(root) {
         const walkStart = walk.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
         const p = clamp((container.scrollTop - walkStart) / total, 0, 1);
         const eased = p;
-        targetZ = eased * DEPTH;
+        // Phone: retain the walk past the photographs, then shorten the empty
+        // approach to the back wall. This remains a real continuous 3D move.
+        if (phoneRenderer) {
+            const travel = eased * 3680;
+            targetZ = Math.min(travel, 3200) + Math.max(0, travel - 3200) * 2.5;
+        } else {
+            targetZ = eased * DEPTH;
+        }
         cam = targetZ;
         render(cam);
         lastCam = cam;

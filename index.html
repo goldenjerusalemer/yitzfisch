@@ -3,6 +3,12 @@
 .gallery-more-wrap{text-align:center;margin:32px 0 8px}
 #galleryMore{cursor:pointer;background:none;border:1px solid #b8933e;color:#b8933e;font:inherit;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;padding:.9em 2.4em;transition:background .25s,color .25s}
 #galleryMore:hover{background:#b8933e;color:#fbf7ee}
+/* The phone renderer is flat WebGL plus HTML overlays. Clip its enlarged,
+   hidden gate so Android cannot count it as overflow after the footer.
+   Desktop preserve-3d is deliberately not clipped. */
+body.phonewalk .stage{overflow:hidden}
+/* Keep the early walk speed, then cross the empty final stretch faster. */
+body.phonewalk #walk{height:calc(var(--site-height) * 2.0)}
 </style></head><body class="loading"><div class="site-scroll"><div id="site-root">
 
 <div id="loader">
@@ -118,7 +124,7 @@
     <a href="mailto:info@yitzfisch.com">info@yitzfisch.com</a>
     <a href="https://instagram.com/yitzfisch" target="_blank" rel="noopener">@yitzfisch</a>
   </div>
-  <div class="f-copy">© 2026 YITZFISCH · NEW YORK CITY</div>
+  <div class="f-copy">© 2026 YITZFISCH · JERUSALEM</div>
 </footer>
 
 <!-- lightbox -->
