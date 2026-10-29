@@ -795,22 +795,58 @@ function initSite(root) {
         tick();
         root.parentElement.addEventListener('scroll', readScroll, { passive: true });
         // Handle touch inside the entrance explicitly, so the outer viewer cannot take its scroll.
+        // Flicks keep gliding after the finger lifts: track the swipe velocity and let it decay
+        // on release, matching the natural momentum of the rest of the page.
         const scroller = root.parentElement;
-        let touchY = 0, walkAnimation = 0;
+        let touchY = 0, walkAnimation = 0, glideAnimation = 0, swipeV = 0, lastMoveT = 0;
+        const stopGlide = () => { cancelAnimationFrame(glideAnimation); glideAnimation = 0; swipeV = 0; };
         stage.addEventListener('touchstart', (e) => { if (e.touches.length !== 1)
-            return; touchY = e.touches[0].clientY; cancelAnimationFrame(walkAnimation); }, { passive: true });
+            return; touchY = e.touches[0].clientY; swipeV = 0; lastMoveT = 0; cancelAnimationFrame(walkAnimation); stopGlide(); }, { passive: true });
         stage.addEventListener('touchmove', (e) => {
             if (e.touches.length !== 1)
                 return;
             const y = e.touches[0].clientY, delta = touchY - y;
             touchY = y;
+            const now = performance.now();
+            if (lastMoveT) {
+                const dt = now - lastMoveT;
+                if (dt > 90)
+                    swipeV = 0; // finger paused: no stored momentum
+                else if (dt > 0)
+                    swipeV = swipeV * 0.6 + (delta / dt) * 0.4; // smoothed px/ms
+            }
+            lastMoveT = now;
             const atTop = scroller.scrollTop <= 0;
-            if (delta < 0 && atTop)
+            if (delta < 0 && atTop) {
+                swipeV = 0;
                 return;
+            }
             e.preventDefault();
             scroller.scrollTop += delta;
             readScroll();
         }, { passive: false });
+        stage.addEventListener('touchend', () => {
+            if (!lastMoveT || performance.now() - lastMoveT > 90)
+                return; // finger was resting, not flicking
+            let v = clamp(swipeV, -3.5, 3.5);
+            swipeV = 0;
+            if (Math.abs(v) < 0.08)
+                return;
+            let prev = performance.now();
+            const glide = (now) => {
+                const dt = Math.min(32, now - prev);
+                prev = now;
+                v *= Math.pow(0.95, dt / 16.7); // friction: a hard flick glides ~1.2s
+                const delta = v * dt;
+                const maxTop = scroller.scrollHeight - scroller.clientHeight;
+                if (Math.abs(v) < 0.04 || (delta < 0 && scroller.scrollTop <= 0) || (delta > 0 && scroller.scrollTop >= maxTop))
+                    return;
+                scroller.scrollTop += delta;
+                readScroll();
+                glideAnimation = requestAnimationFrame(glide);
+            };
+            glideAnimation = requestAnimationFrame(glide);
+        }, { passive: true });
         const controls = document.createElement('div');
         controls.className = 'walk-controls';
         const play = document.createElement('button');
@@ -821,6 +857,7 @@ function initSite(root) {
         controls.append(play, status);
         stage.appendChild(controls);
         play.addEventListener('click', () => {
+            stopGlide();
             if (play.textContent === 'Pause') {
                 cancelAnimationFrame(walkAnimation);
                 play.textContent = 'Continue walk';
