@@ -90,7 +90,7 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     const brand = document.createElement('img');
     brand.src = logo;
     brand.alt = 'YitzFisch logo';
-    brand.style.width = '30%';
+    brand.style.width = '18%';
     end.append(brand);
     const tag = document.createElement('div');
     tag.className = 'webgl-end-tag';
