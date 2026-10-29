@@ -77,16 +77,16 @@ function makePhoneWalk(stage, photos, picks, url, logo, onOpen) {
     const frameImages = Array.from(stage.querySelectorAll('.frame .mat img'));
     const images = picks.map((i, k) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.src = frameImages[k]?.src || url(photos[i].id); return im; });
     const waitImage = (im) => im.decode().catch(() => { });
-    // Gate styles: exact logo icon geometry (measured from the logo art: frame 9.6%, dot 19.6% centered at 50% / 32.9%).
+    // Gate styles: same proportions as the approved desktop 3D gate (frame 4.8%, dot 17.8% at 50.6% / 33.3%, brand gold #A07E3C).
     const gateStyle = document.createElement('style');
     gateStyle.textContent = `.webgl-gate{top:46%!important;border:0!important;display:block!important;border-radius:0;container-type:inline-size}
-.webgl-gate::before{content:'';position:absolute;inset:0;box-sizing:border-box;border:9.6cqw solid #bfa269}
-.webgl-gate-dot{position:absolute;left:50%;top:32.9%;width:19.6%;aspect-ratio:1;border-radius:50%;background:#bfa269;transform:translate(-50%,-50%);margin:0}
+.webgl-gate::before{content:'';position:absolute;inset:0;box-sizing:border-box;border:4.8cqw solid #A07E3C}
+.webgl-gate-dot{position:absolute;left:50.6%;top:33.3%;width:17.8%;aspect-ratio:1;border-radius:50%;background:#A07E3C;transform:translate(-50%,-50%);margin:0}
 .webgl-gate-tag{position:absolute;left:0;right:0;top:68%;text-align:center;font:italic 7cqw Georgia,serif!important;color:#a07e3c;white-space:nowrap}`;
     stage.append(gateStyle);
     const entrance = document.createElement('div');
     entrance.className = 'webgl-gate';
-    // Gate = the real logo icon, same proportions as the nav logo (frame 9.6%, dot 19.6% centered at 50% / 32.9%).
+    // Gate = the logo mark at the approved desktop-gate proportions (frame 4.8%, dot 17.8% at 50.6% / 33.3%).
     const gateDot = document.createElement('div');
     gateDot.className = 'webgl-gate-dot';
     entrance.append(gateDot);
