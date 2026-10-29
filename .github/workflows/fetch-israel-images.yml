@@ -1,0 +1,39 @@
+# One-shot scaffolding: downloads the Israel gallery webp files (pre-converted,
+# hosted temporarily in Drive) and commits them into img/. Deleted after use.
+name: Fetch Israel gallery images
+
+on:
+  push:
+    branches: [israel-gallery]
+    paths: [".github/workflows/fetch-israel-images.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download image zips
+        run: |
+          curl -fL 'https://drive.usercontent.google.com/download?id=1vK-9r6-AdYsz27mT3IeCdIe76WYpCqyY&export=download&confirm=t' -o /tmp/israel-1.zip
+          curl -fL 'https://drive.usercontent.google.com/download?id=15oHtxLyb6jegxUkaKwBLVDhFq8v71QJA&export=download&confirm=t' -o /tmp/israel-2.zip
+          ls -la /tmp/israel-*.zip
+
+      - name: Unzip into img/
+        run: |
+          unzip -o /tmp/israel-1.zip -d img/
+          unzip -o /tmp/israel-2.zip -d img/
+          ls img/israel-*.webp | wc -l
+
+      - name: Commit images
+        run: |
+          git config user.name "image-fetcher"
+          git config user.email "actions@users.noreply.github.com"
+          git add img/israel-*.webp
+          if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
+          git commit -m "Add Israel gallery webp images [skip ci]"
+          git push
