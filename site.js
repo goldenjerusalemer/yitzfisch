@@ -463,10 +463,10 @@ function initSite(root) {
             el.style.height = h + 'px';
             el.style.transform = transform;
         };
-        setP('wallL', span, wallH, 'translate(-50%,-50%) translate3d(' + (-HW) + 'px,0,' + (-span / 2 + 400) + 'px) rotateY(90deg)');
-        setP('wallR', span, wallH, 'translate(-50%,-50%) translate3d(' + (HW) + 'px,0,' + (-span / 2 + 400) + 'px) rotateY(-90deg)');
-        setP('floor', HW * 2 + 8, span, 'translate(-50%,-50%) translate3d(0,' + (VH * 0.55) + 'px,' + (-span / 2 + 400) + 'px) rotateX(90deg)');
-        setP('ceil', HW * 2 + 8, span, 'translate(-50%,-50%) translate3d(0,' + (-VH * 0.55) + 'px,' + (-span / 2 + 400) + 'px) rotateX(-90deg)');
+        setP('wallL', span, wallH, 'translate(-50%,-50%) translate3d(' + (-HW) + 'px,0,' + (-span / 2 + 780) + 'px) rotateY(90deg)');
+        setP('wallR', span, wallH, 'translate(-50%,-50%) translate3d(' + (HW) + 'px,0,' + (-span / 2 + 780) + 'px) rotateY(-90deg)');
+        setP('floor', HW * 2 + 8, span, 'translate(-50%,-50%) translate3d(0,' + (VH * 0.55) + 'px,' + (-span / 2 + 780) + 'px) rotateX(90deg)');
+        setP('ceil', HW * 2 + 8, span, 'translate(-50%,-50%) translate3d(0,' + (-VH * 0.55) + 'px,' + (-span / 2 + 780) + 'px) rotateX(-90deg)');
         const S = Math.min(640, HW * 1.86, VH * 0.84);
         gate.style.width = S + 'px';
         gate.style.height = S + 'px';
@@ -560,7 +560,7 @@ function initSite(root) {
         gate.style.visibility = (GATE_Z + camZ >= PERSP - 24) ? 'hidden' : 'visible';
         // frames: solid always; removed only once fully behind you
         frames.forEach(f => {
-            const vis = (-f.z - camZ < -280) ? 'hidden' : 'visible';
+            const vis = (-f.z - camZ < (phoneRenderer ? -280 : -(PERSP + 170))) ? 'hidden' : 'visible';
             if (vis !== f.vis) {
                 f.el.style.visibility = vis;
                 f.vis = vis;
