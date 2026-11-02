@@ -210,6 +210,8 @@ function initSite(root) {
     // Which photos go where. These are indices into PHOTOS. The sheet overrides them
     // (corridor / series / print / portrait columns); these are the fallback picks.
     let PHOTOS = FALLBACK;
+    // Descriptive alt text for SEO + accessibility: title, location, then what it is.
+    function altText(p) { return p.t + (p.l ? ', ' + p.l : '') + ', fine art photography print by Yitz Fisch'; }
     let CORRIDOR_PICKS = [0, 3, 8, 1, 13, 5, 10, 11, 6, 2];
     let SHABBAT_PICKS = [13, 3, 11, 10, 14];
     let PRINT_PICKS = [0, 3, 13];
@@ -424,7 +426,7 @@ function initSite(root) {
             const u = url(p.id);
             img.src = u;
             setDims(img, u);
-            img.alt = p.t;
+            img.alt = altText(p);
             img.decoding = 'async';
             if (pair < 2)
                 img.fetchPriority = 'high';
@@ -664,7 +666,7 @@ function initSite(root) {
             const u = url(p.id);
             img.src = u;
             setDims(img, u);
-            img.alt = p.t;
+            img.alt = altText(p);
             img.loading = 'lazy';
             img.decoding = 'async';
             withRetry(img);
@@ -691,7 +693,7 @@ function initSite(root) {
             const u = url(p.id);
             img.src = u;
             setDims(img, u);
-            img.alt = p.t;
+            img.alt = altText(p);
             img.loading = 'lazy';
             img.decoding = 'async';
             withRetry(img);
@@ -736,7 +738,7 @@ function initSite(root) {
     function renderLb() {
         const p = lbList[lbIdx];
         lbImg.src = url(p.id, window.innerWidth < 640 ? 1000 : 1400);
-        lbImg.alt = p.t;
+        lbImg.alt = altText(p);
         document.getElementById('lbT').textContent = p.t;
         document.getElementById('lbL').textContent = p.l;
         document.getElementById('lbC').textContent = p.cap || '';
