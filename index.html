@@ -1,8 +1,17 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Yitz Fisch | Photography</title><meta name="description" content="Street photography by Yitz Fisch, a New York City photographer with a deep connection to Israel."><link rel="stylesheet" href="./site.css"><style>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Yitz Fisch | Jerusalem &amp; Israel Fine Art Photography Prints</title><meta name="description" content="Signed fine art street and landscape photography prints of Jerusalem, the Old City and Israel by Yitz Fisch, on paper, canvas, metal and acrylic."><meta property="og:type" content="website"><meta property="og:title" content="Yitz Fisch | Jerusalem &amp; Israel Fine Art Photography Prints"><meta property="og:description" content="Signed fine art prints of Jerusalem, the Old City and Israel by Yitz Fisch."><meta property="og:url" content="https://yitzfisch.com/"><meta property="og:image" content="https://yitzfisch.com/img/gallery.webp"><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="./site.css"><style>
 .gallery-more-wrap{text-align:center;margin:32px 0 8px}
 #galleryMore{cursor:pointer;background:none;border:1px solid #b8933e;color:#b8933e;font:inherit;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;padding:.9em 2.4em;transition:background .25s,color .25s}
 #galleryMore:hover{background:#b8933e;color:#fbf7ee}
+.price-wrap{max-width:720px;margin:30px auto 10px;padding:0 18px;text-align:center}
+.price-launch{display:inline-block;margin:0 0 18px;padding:.5em 1.4em;border:1px solid #b8933e;border-radius:2px;color:#8a6a24;letter-spacing:.14em;text-transform:uppercase;font-size:.7rem}
+.price-table{width:100%;border-collapse:collapse;font-size:.92rem;color:#3c2c14}
+.price-table th{font-weight:600;text-transform:uppercase;letter-spacing:.1em;font-size:.64rem;color:#8a6a24;padding:0 0 10px;border-bottom:1px solid #b8933e}
+.price-table td{padding:11px 0;border-bottom:1px solid rgba(184,147,62,.22);text-align:right}
+.price-table td:first-child,.price-table th:first-child{text-align:left}
+.price-table tr:last-child td{border-bottom:none}
+.price-note{margin:16px auto 0;max-width:560px;font-size:.74rem;line-height:1.5;color:#6b5a3c}
+@media(max-width:480px){.price-table{font-size:.8rem}.price-table th{font-size:.58rem}.price-wrap{padding:0 10px}}
 /* The phone renderer is flat WebGL plus HTML overlays. Clip its enlarged,
    hidden gate so Android cannot count it as overflow after the footer.
    Desktop preserve-3d is deliberately not clipped. */
@@ -153,7 +162,21 @@ body.phonewalk #walk{height:calc(var(--site-height) * 2.0)}
     <div class="sec-label">Collect</div>
     <h2 class="sec-title">Available Prints</h2>
     <div class="gold-line"></div>
-    <p class="sec-sub">Museum-quality fine art prints, signed and numbered. Inquire for sizes and pricing.</p>
+    <p class="sec-sub">Museum quality fine art prints, signed and numbered in editions of 25. Launch pricing below.</p>
+  </div>
+  <div class="price-wrap">
+    <div class="price-launch">Launch offer · 10% off every print through November 30</div>
+    <table class="price-table">
+      <thead><tr><th>Size</th><th>Paper</th><th>Canvas</th><th>Metal</th><th>Acrylic</th></tr></thead>
+      <tbody>
+        <tr><td>8x12</td><td>$35</td><td>$110</td><td>$150</td><td>$150</td></tr>
+        <tr><td>12x18</td><td>$60</td><td>$165</td><td>$250</td><td>$250</td></tr>
+        <tr><td>16x24</td><td>$95</td><td>$250</td><td>$375</td><td>$375</td></tr>
+        <tr><td>20x30</td><td>$135</td><td>$300</td><td>$525</td><td>$525</td></tr>
+        <tr><td>24x36</td><td>$175</td><td>$395</td><td>$650</td><td>$650</td></tr>
+      </tbody>
+    </table>
+    <p class="price-note">Unframed archival paper, gallery wrap canvas, metal, or face mounted acrylic. The 10% launch discount is applied to your order.</p>
   </div>
   <div class="prints-grid" id="printsGrid"></div>
 </section>
