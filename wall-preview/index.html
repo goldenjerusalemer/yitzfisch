@@ -53,7 +53,7 @@
   .chip .swatch{height:30px;border-radius:6px;margin-bottom:6px;border:1px solid rgba(0,0,0,.08)}
   .chip .ico{display:flex;gap:3px;justify-content:center;align-items:center;height:26px;margin-bottom:6px}
   .chip .ico span{background:#bdb7ab;border-radius:2px;display:block}
-  .gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;max-height:252px;overflow:auto;padding:2px}
   .thumb{position:relative;width:60px;height:60px;border-radius:8px;overflow:hidden;border:2px solid var(--line);cursor:pointer;background:#eee}
   .thumb img{width:100%;height:100%;object-fit:cover;display:block}
   .thumb .del{position:absolute;top:1px;right:3px;color:#fff;background:rgba(0,0,0,.55);width:16px;height:16px;line-height:14px;text-align:center;border-radius:50%;font-size:12px}
@@ -73,7 +73,7 @@
 <body>
 <div class="wrap">
   <header><h1>See It On Your Wall</h1></header>
-  <p class="sub">Add a room photo and your prints, pick a layout and a print style, then tap your photos to fill the frames. Drag to move the whole set, pull the corner to resize.</p>
+  <p class="sub">Upload a photo of your room, then tap any print to hang it. Pick a layout, a print style and a size. Drag to move the set, pull the corner to resize.</p>
 
   <div class="layout">
     <div class="stageCard">
@@ -94,11 +94,11 @@
       </div>
 
       <div class="panel">
-        <h2>Your prints</h2>
-        <button class="btn" id="artBtn">Add my photos</button>
-        <input type="file" id="artFile" class="hiddenfile" accept="image/*" multiple>
+        <h2>The prints</h2>
         <div class="gallery" id="gallery"></div>
-        <p class="note" id="galEmpty">Add your prints once and they stay here. Tap one to drop it into the selected frame.</p>
+        <p class="note" id="galEmpty">Loading the collection</p>
+        <button class="btn" id="artBtn" style="display:none;margin-top:10px">Add photos</button>
+        <input type="file" id="artFile" class="hiddenfile" accept="image/*" multiple>
       </div>
 
       <div class="panel">
@@ -219,7 +219,7 @@
     var g=x.createLinearGradient(0,0,800,640);g.addColorStop(0,'#3a4b5c');g.addColorStop(1,'#c88a52');
     x.fillStyle=g;x.fillRect(0,0,800,640);
     x.fillStyle='rgba(255,255,255,.85)';x.textAlign='center';x.font='500 26px -apple-system,Arial';
-    x.fillText('tap a photo',400,330);
+    x.fillText('tap a print',400,330);
     return c.toDataURL('image/jpeg',0.9);
   }
 
@@ -360,10 +360,53 @@
     var rd=new FileReader(); rd.onload=function(ev){setWall(ev.target.result);}; rd.readAsDataURL(f);
   });
 
-  // ---- gallery ----
+  // ---- prints loaded from the site ----
   var galEl=document.getElementById('gallery'), galEmpty=document.getElementById('galEmpty');
-  var MAXPHOTOS=20;
-  function persist(){ try{ localStorage.setItem('yf_gallery2',JSON.stringify(gallery)); }catch(e){} }
+  function renderGallery(){
+    galEl.innerHTML=''; galEmpty.style.display=gallery.length?'none':'block';
+    gallery.forEach(function(item,i){
+      var t=document.createElement('div'); t.className='thumb'; t.title=item.title||'';
+      var im=document.createElement('img'); im.src=item.src; im.alt=item.title||''; im.loading='lazy';
+      im.addEventListener('click',function(){ assignToSelected(i); });
+      t.appendChild(im); galEl.appendChild(t);
+    });
+  }
+  function csvParse(text){
+    var rows=[],row=[],cur='',q=false;
+    for(var i=0;i<text.length;i++){
+      var ch=text[i];
+      if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+      else if(ch==='"') q=true;
+      else if(ch===','){ row.push(cur); cur=''; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(ch!=='\r') cur+=ch;
+    }
+    if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+    return rows.filter(function(r){ return r.length>1 || (r[0]||'').trim()!==''; });
+  }
+  function loadPrints(){
+    fetch('/content/photos.csv').then(function(r){ if(!r.ok) throw 0; return r.text(); }).then(function(t){
+      var rows=csvParse(t); if(rows.length<2) throw 0;
+      var head=rows[0], fi=head.indexOf('file'), ti=head.indexOf('title'), pi=head.indexOf('print');
+      var items=[];
+      rows.slice(1).forEach(function(r){
+        var f=(r[fi]||'').trim(); if(!f) return;
+        items.push({src:'/img/'+(f.indexOf('.')>=0?f:f+'.webp'), title:(r[ti]||'').trim(),
+          print:(r[pi]||'').trim()?parseFloat(r[pi]):null, ratio:1.4});
+      });
+      if(!items.length) throw 0;
+      var pr=items.filter(function(x){return x.print!=null;}).sort(function(a,b){return a.print-b.print;});
+      var rest=items.filter(function(x){return x.print==null;});
+      gallery=pr.concat(rest);
+      selectedSlot=0; assign=[]; ensureAssign(); renderGallery(); render();
+      gallery.forEach(function(item){ var im=new Image(); im.onload=function(){
+        item.ratio=im.naturalWidth/im.naturalHeight; if(layout==='single') render(); }; im.src=item.src; });
+    }).catch(function(){
+      galEmpty.textContent='Could not load the collection. Add photos below.';
+      document.getElementById('artBtn').style.display='';
+    });
+  }
+  // fallback upload, shown only if the collection cannot load
   function loadImageFile(file,cb){
     var rd=new FileReader(); rd.onload=function(e){
       var img=new Image(); img.onload=function(){
@@ -374,34 +417,14 @@
       }; img.src=e.target.result;
     }; rd.readAsDataURL(file);
   }
-  function renderGallery(){
-    galEl.innerHTML=''; galEmpty.style.display=gallery.length?'none':'block';
-    gallery.forEach(function(item,i){
-      var t=document.createElement('div'); t.className='thumb';
-      var im=document.createElement('img'); im.src=item.src;
-      var del=document.createElement('span'); del.className='del'; del.textContent='×'; del.title='remove';
-      im.addEventListener('click',function(){ assignToSelected(i); });
-      del.addEventListener('click',function(ev){ ev.stopPropagation(); removePhoto(i); });
-      t.appendChild(im); t.appendChild(del); galEl.appendChild(t);
-    });
-  }
-  function removePhoto(i){
-    gallery.splice(i,1);
-    assign=assign.map(function(v){ if(v==null)return null; if(v===i)return null; if(v>i)return v-1; return v; });
-    persist(); ensureAssign(); renderGallery(); render();
-  }
   document.getElementById('artBtn').addEventListener('click',function(){document.getElementById('artFile').click();});
   document.getElementById('artFile').addEventListener('change',function(e){
     var files=Array.prototype.slice.call(e.target.files); if(!files.length) return;
     files.forEach(function(f){
-      loadImageFile(f,function(item){
-        if(gallery.length>=MAXPHOTOS) return;
-        gallery.push(item); persist(); ensureAssign(); renderGallery(); render();
-      });
+      loadImageFile(f,function(item){ gallery.push(item); ensureAssign(); renderGallery(); render(); });
     });
     e.target.value='';
   });
-  try{ var saved=JSON.parse(localStorage.getItem('yf_gallery2')||'[]'); if(saved&&saved.length){ gallery=saved.slice(0,MAXPHOTOS); } }catch(e){}
 
   document.getElementById('resetBtn').addEventListener('click',function(){ cx=50;cy=42;wPct=defaultWidth[layout];render(); });
 
@@ -464,6 +487,7 @@
   placeholderArtSrc=placeholderArt();
   ensureAssign(); markLayout(); renderGallery();
   setWall(placeholderWall());
+  loadPrints();
 })();
 </script>
 </body>
