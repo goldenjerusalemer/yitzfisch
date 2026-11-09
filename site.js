@@ -565,6 +565,10 @@ function initSite(root) {
         if (d && d[0] && d[1]) {
             img.setAttribute('width', d[0]);
             img.setAttribute('height', d[1]);
+            // reserve the exact box: the stylesheet's aspect-ratio:auto would
+            // otherwise override the width/height-attribute hint and unloaded
+            // photos collapse to zero height (the gallery "jumping")
+            img.style.aspectRatio = d[0] + ' / ' + d[1];
         }
     }
     function buildCorridor() {
