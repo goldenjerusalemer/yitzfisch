@@ -560,15 +560,19 @@ function initSite(root) {
     let HW = 0, VH = 0, stageH = 0;
     let phoneRenderer = null;
     const frames = [];
-    function setDims(img, srcUrl) {
+    function setDims(img, srcUrl, reserve) {
         const d = DIMS[srcUrl];
         if (d && d[0] && d[1]) {
             img.setAttribute('width', d[0]);
             img.setAttribute('height', d[1]);
-            // reserve the exact box: the stylesheet's aspect-ratio:auto would
-            // otherwise override the width/height-attribute hint and unloaded
-            // photos collapse to zero height (the gallery "jumping")
-            img.style.aspectRatio = d[0] + ' / ' + d[1];
+            // reserve the exact box: only the gallery masonry needs this. Its
+            // stylesheet sets aspect-ratio:auto, which overrides the
+            // width/height-attribute hint, so unloaded photos collapse to zero
+            // height (the gallery "jumping"). Everywhere else (series strip,
+            // prints, portrait) the CSS sets its own aspect-ratio crop that
+            // must NOT be overridden, so reserve stays off there.
+            if (reserve)
+                img.style.aspectRatio = d[0] + ' / ' + d[1];
         }
     }
     function buildCorridor() {
@@ -770,7 +774,7 @@ function initSite(root) {
                 const img = document.createElement('img');
                 const u = url(p.id);
                 img.src = u;
-                setDims(img, u);
+                setDims(img, u, true);
                 img.style.objectPosition = focal[p.t] || '50% 50%';
                 img.alt = (p.t ? p.t + (p.kw ? ' \u2014 ' + p.kw : '') : 'Jerusalem') + ' - photography by Yitz Fisch';
                 img.loading = 'lazy';
